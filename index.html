@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Survive the Backrooms</title>
+<meta name="theme-color" content="#090807">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root { --bg:#090807; --ink:#fff8e8; --muted:#c7bda9; --accent:#e0bb50; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-family:Georgia,serif; }
+  body { padding:20px 16px; }
+  main { width:100%; max-width:900px; margin:auto; }
+  h1 { text-align:center; font-size:1.3rem; font-weight:400; margin:4px 0 16px; }
+  .video-stage {
+    position:relative; width:100%; aspect-ratio:16/9; background:#000;
+    overflow:hidden; border:1px solid #4b412d;
+  }
+  /* Fullscreen applies to the whole container, including #choices. */
+  .video-stage:fullscreen,
+  .video-stage:-webkit-full-screen {
+    width:100vw; height:100vh; max-width:none; aspect-ratio:auto; border:0;
+  }
+  video { display:block; width:100%; height:100%; background:#000; object-fit:contain; }
+  .top-controls { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+  button, .file-label {
+    padding:11px 14px; border:1px solid #857247; border-radius:6px;
+    background:#211c13; color:var(--ink); font:inherit; cursor:pointer;
+  }
+  button:active, .file-label:active { background:#493d22; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  input[type=file] { max-width:180px; }
+  #status { min-height:1.3em; color:var(--muted); font-size:.88rem; margin:8px 0; }
+  #choices {
+    position:absolute; left:0; right:0; bottom:13%; z-index:3;
+    display:flex; flex-wrap:wrap; justify-content:center; gap:10px;
+    padding:0 4%; pointer-events:none;
+  }
+  #choices button {
+    pointer-events:auto; max-width:46%;
+    background:rgba(8,8,8,.42); color:#fff; border:1px solid rgba(255,255,255,.78);
+    border-radius:999px; text-align:center; backdrop-filter:blur(3px);
+    opacity:0; transform:translateY(70px) scale(.8);
+  }
+  #choices.visible button { animation:flyIn .42s cubic-bezier(.2,.8,.2,1) forwards; }
+  #choices.visible button:nth-child(2) { animation-delay:.08s; }
+  #choices.visible button:nth-child(3) { animation-delay:.16s; }
+  #choices.leaving button { animation:flyOut .25s ease-in forwards; }
+  @keyframes flyIn { to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes flyOut { to { opacity:0; transform:translateY(70px) scale(.8); } }
+  footer { margin-top:18px; color:var(--muted); font-size:.8rem; line-height:1.5; }
+  .hidden { display:none !important; }
+
+  /* Fallback styling if the phone refuses to lock orientation. */
+  @media (orientation:portrait) and (max-width:700px) {
+    body.landscape-requested { padding:8px; }
+    body.landscape-requested h1, body.landscape-requested footer { display:none; }
+    body.landscape-requested main { max-width:none; }
+    body.landscape-requested .video-stage { margin-top:4px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Survive the Backrooms</h1>
+
+  <div class="video-stage" id="videoStage">
+    <video id="video" controls playsinline preload="metadata"></video>
+    <div id="choices" aria-live="polite"></div>
+  </div>
+
+  <div class="top-controls">
+    <label class="file-label">Video:
+      <select id="videoSelect">
+        <option value="0">Navigate the Backrooms — 12 Endings</option>
+        <option value="1">Backrooms — alternate video</option>
+      </select>
+    </label>
+    <button id="startButton" type="button">Start in landscape</button>
+    <button id="fullscreenButton" type="button" disabled>Fullscreen</button>
+  </div>
+
+  <div id="status" role="status">Loading the video…</div>
+
+  <footer>
+    Decision buttons fly onto the video at each choice point. Tap a path and they fly away while playback continues.
+  </footer>
+</main>
+
+<script>
+  const VIDEOS = [
+    {
+      name: "Navigate the Backrooms — 12 Endings",
+      url: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663288753809/NusRfygEdtIOutDv.mp4",
+      decisions: [
+        { time:"0:08", choices:["Continue watching", "Skip to 5:27", "Skip to 11:04"] },
+        { time:"0:57", choices:["Skip to 3:05", "Continue watching"] },
+        { time:"1:43", choices:["Skip to 2:23", "Continue watching"] },
+        { time:"3:50", choices:["Continue watching", "Skip to 4:40"] },
+        { time:"6:17", choices:["Continue watching", "Skip to 8:38"] },
+        { time:"7:01", choices:["Continue watching", "Skip to 7:55"] },
+        { time:"9:26", choices:["Continue watching", "Skip to 10:09"] },
+        { time:"11:50", choices:["Continue watching", "Skip to 14:07"] },
+        { time:"12:45", choices:["Skip to 13:30", "Continue watching"] },
+        { time:"14:50", choices:["Continue watching", "Skip to 15:37"] }
+      ]
+    },
+    {
+      name: "Backrooms — alternate video",
+      url: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663288753809/wUTTjBdGXkZqHbjQ.mp4",
+      decisions: [
+        { time:"0:08", choices:["Skip to 10:09", "Skip to 13:23", "Skip to 3:46", "Continue watching"] },
+        { time:"1:00", choices:["Skip to 1:53", "Continue watching"] },
+        { time:"2:48", choices:["Continue watching", "Skip to 1:07", "Skip to 16:43"] },
+        { time:"3:39", choices:["Skip to 6:00", "Skip to 7:03"] },
+        { time:"4:49", choices:["Skip to 11:08", "Skip to 1:53", "Continue watching"] },
+        { time:"5:55", choices:["Skip to 7:58", "Continue watching"] },
+        { time:"6:58", choices:["Skip to 9:01", "Continue watching"] },
+        { time:"8:54", choices:["Skip to 16:43", "Continue watching"] },
+        { time:"11:03", choices:["Skip to 12:14", "Skip to 14:37", "Continue watching"] },
+        { time:"12:06", choices:["Skip to 0:00", "Skip to 1:07"] },
+        { time:"13:16", choices:["Skip to 7:58", "Skip to 16:43", "Continue watching"] },
+        { time:"14:32", choices:["Skip to 16:43", "Continue watching", "Skip to 11:08"] },
+        { time:"15:36", choices:["Continue watching", "Skip to 16:43"] },
+        { time:"17:56", choices:["Skip to 18:57", "Continue watching", "Skip to 20:06"] }
+      ]
+    }
+  ];
+
+  // Keep each choice overlay visible for 8 seconds.
+  const OVERLAY_WINDOW = 8;
+  const video = document.getElementById("video");
+  const stage = document.getElementById("videoStage");
+  const videoSelect = document.getElementById("videoSelect");
+  const startButton = document.getElementById("startButton");
+  const fullscreenButton = document.getElementById("fullscreenButton");
+  const status = document.getElementById("status");
+  const choicesBox = document.getElementById("choices");
+  let selectedVideo = 0;
+  let points = [];
+
+  let shownPoint = -1;
+  let dismissedPoint = -1;
+
+  function parseTime(value) {
+    return value.split(":").map(Number).reverse()
+      .reduce((total, part, index) => total + part * (60 ** index), 0);
+  }
+
+  function clearChoices(animate = false) {
+    if (animate && choicesBox.children.length) {
+      choicesBox.classList.remove("visible");
+      choicesBox.classList.add("leaving");
+      setTimeout(() => {
+        choicesBox.innerHTML = "";
+        choicesBox.classList.remove("leaving");
+      }, 260);
+    } else {
+      choicesBox.innerHTML = "";
+      choicesBox.classList.remove("visible", "leaving");
+    }
+    shownPoint = -1;
+  }
+
+  function loadVideo(index) {
+    selectedVideo = Number(index);
+    const selected = VIDEOS[selectedVideo];
+    points = selected.decisions.map(p => ({ ...p, seconds: parseTime(p.time) }));
+    video.pause();
+    video.src = selected.url;
+    video.load();
+    fullscreenButton.disabled = false;
+    clearChoices();
+    dismissedPoint = -1;
+    status.textContent = "Loading: " + selected.name + "…";
+  }
+
+  videoSelect.addEventListener("change", () => loadVideo(videoSelect.value));
+  loadVideo(0);
+
+  video.addEventListener("loadedmetadata", () => {
+    status.textContent = "Ready: " + VIDEOS[selectedVideo].name + ". Tap Start in landscape.";
+  });
+
+  video.addEventListener("error", () => {
+    status.textContent = "This video format could not be loaded. Try an MP4 with H.264 video and AAC audio.";
+  });
+
+  async function tryLandscape() {
+    document.body.classList.add("landscape-requested");
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        await screen.orientation.lock("landscape");
+      }
+      status.textContent = "Landscape mode requested. Press play if needed.";
+    } catch (error) {
+      status.textContent = "Rotate your phone sideways; this browser does not allow automatic orientation lock here.";
+    }
+  }
+
+  startButton.addEventListener("click", async () => {
+    await tryLandscape();
+    video.play().catch(() => {
+      status.textContent = "Landscape mode ready. Press the video play button.";
+    });
+  });
+
+  fullscreenButton.addEventListener("click", async () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (stage.requestFullscreen) {
+          await stage.requestFullscreen();
+        } else if (stage.webkitRequestFullscreen) {
+          await stage.webkitRequestFullscreen();
+        } else {
+          throw new Error("Fullscreen API unavailable");
+        }
+        if (screen.orientation && screen.orientation.lock) {
+          await screen.orientation.lock("landscape").catch(() => {});
+        }
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (error) {
+      status.textContent = "Real fullscreen is unavailable. Install this page as a PWA or open it directly in Chrome.";
+    }
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    fullscreenButton.textContent = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
+  });
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+
+  function showChoices(index) {
+    clearChoices();
+    points[index].choices.forEach(text => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = text;
+      button.addEventListener("click", () => {
+        const match = text.match(/skip to\s+([\d:]+)/i);
+        if (match) {
+          video.currentTime = parseTime(match[1]);
+          status.textContent = "Jumped to " + match[1] + ".";
+        }
+        dismissedPoint = index;
+        clearChoices(true);
+        video.play().catch(() => {
+          status.textContent = "Press play to continue.";
+        });
+      });
+      choicesBox.appendChild(button);
+    });
+    shownPoint = index;
+    requestAnimationFrame(() => choicesBox.classList.add("visible"));
+  }
+
+  video.addEventListener("timeupdate", () => {
+    const active = points.findIndex(point =>
+      video.currentTime >= point.seconds &&
+      video.currentTime < point.seconds + OVERLAY_WINDOW
+    );
+
+    if (active === -1) {
+      if (choicesBox.children.length) clearChoices(true);
+      dismissedPoint = -1;
+      return;
+    }
+
+    if (active === dismissedPoint || active === shownPoint) return;
+    showChoices(active);
+  });
+</script>
+</body>
+</html>
